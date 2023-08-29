@@ -17,6 +17,8 @@ fn identity(src: String) {
   |> should.equal(src)
 }
 
+// ------------- Import Tests ---------------------------
+
 pub fn basic_import_test() {
   identity("import gleam/io")
 }
@@ -48,3 +50,10 @@ pub fn import_with_multiple_unqualified_imports_with_aliases_test() {
 pub fn multiple_imports_test() {
   identity("import gleam/io\nimport gleam/option as option_stuff")
 }
+// ------- Custom Types -----------------------
+
+// pub fn custom_type_test() {
+//   identity(
+//     "pub opaque type Cardinal(a, b) {\n  North\n East\n  South\n West\n}",
+//   )
+// }

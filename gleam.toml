@@ -12,6 +12,7 @@ description = "A Gleam project"
 [dependencies]
 gleam_stdlib = "~> 0.30"
 glance = "~> 0.6"
+glam = "~> 1.0"
 
 [dev-dependencies]
 gleeunit = "~> 0.10"

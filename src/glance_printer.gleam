@@ -1,98 +1,72 @@
 import gleam/list
 import gleam/string_builder.{StringBuilder}
-import gleam/option.{None, Some}
-import glance.{Definition, Import, Module}
+import gleam/string
+import gleam/option.{None, Option, Some}
+import glance.{
+  Clause, Constant, CustomType, Definition, Field, Import, Module, Private,
+  Public, Type, Variant,
+}
+import glam/doc.{Document}
 
 /// Stringify a gleam module
 pub fn print(module module: Module) -> String {
-  // Imports
-  print_imports(module.imports)
+  // Imports get reversed when parsed, so reverse them back
+  // and pretty print them separated by newlines
+  let imports =
+    module.imports
+    |> list.reverse
+    |> list.map(pretty_import)
+    |> doc.join(with: doc.from_string("\n"))
+
+  doc.empty
+  |> doc.append(imports)
+  |> doc.to_string(80)
 }
 
-// Print a list of gleam imports
-fn print_imports(imports: List(Definition(Import))) -> String {
-  imports
-  |> list.map(fn(import_) {
-    let Definition(_attribute, import_) = import_
-    print_import(import_)
-  })
-  // Glance is reversign the imports when it parses them,
-  // so we reverse them back
-  |> list.reverse
-  |> delimited_by("\n")
-  |> string_builder.to_string
-}
+// Pretty print an import statement
+fn pretty_import(import_: Definition(Import)) -> Document {
+  let Definition(_, Import(module, alias, unqualifieds)) = import_
 
-fn print_import(input: Import) -> StringBuilder {
-  let Import(module, alias, unqualified_imports) = input
-  // Start with import keyword plus the module name
-  string_builder.from_string("import ")
-  |> string_builder.append(module)
-  // Handle unqualified imports
-  |> case unqualified_imports {
-    // No unqualified imports
-    [] -> append_nothing()
-
-    // Some unqualified imports
-    unqualifieds -> string_builder.append_builder(
-      _,
-      // Unqualified imports are wrapped in squiggly brackets
-      string_builder.from_string(".{")
-      |> string_builder.append_builder(
-        unqualifieds
-        |> list.map(fn(unqualified) {
-          // Add the name of each import
-          string_builder.from_string(unqualified.name)
-          // Add the alias of each import if it has one
-          |> case unqualified.alias {
-            Some(alias) -> string_builder.append(_, " as " <> alias)
-            None -> append_nothing()
-          }
-        })
-        // Unqualified imports are separated by commas
-        |> delimited_by(", "),
-      )
-      |> string_builder.append("}"),
-    )
+  let unqualifieds = case unqualifieds {
+    [] -> doc.empty
+    _ ->
+      unqualifieds
+      |> list.map(fn(uq) {
+        doc.concat([doc.from_string(uq.name), pretty_import_alias(uq.alias)])
+      })
+      |> doc.join(with: comma())
+      |> parenthesize_breaking(".{", "}")
   }
-  |> case alias {
-    Some(alias_str) -> string_builder.append(_, " as " <> alias_str)
-    None -> append_nothing()
+
+  doc.from_string("import " <> module)
+  |> doc.append(unqualifieds)
+  |> doc.append(pretty_import_alias(alias))
+}
+
+// Pretty print the " as whatever" bit of an import statement
+fn pretty_import_alias(alias: Option(String)) -> Document {
+  case alias {
+    Some(alias_str) -> doc.from_string(" as " <> alias_str)
+    None -> doc.empty
   }
 }
 
-// -------- Helpers -------------
+// Helpers ---------------------------------------------
 
-fn append_nothing() {
-  string_builder.append(_, "")
+fn comma() -> Document {
+  doc.concat([doc.from_string(","), doc.space])
 }
 
-pub fn delimited_by(
-  input: List(StringBuilder),
-  delimiter: String,
-) -> StringBuilder {
-  do_delimited_by(input, delimiter, string_builder.from_string(""))
-}
-
-fn do_delimited_by(
-  input: List(StringBuilder),
-  delimiter: String,
-  acc: StringBuilder,
-) -> StringBuilder {
-  case input {
-    [] -> acc
-    [single_item] ->
-      acc
-      |> string_builder.append_builder(single_item)
-    [item, ..rest] ->
-      do_delimited_by(
-        rest,
-        delimiter,
-        acc
-        |> string_builder.append_builder(
-          item
-          |> string_builder.append(delimiter),
-        ),
-      )
-  }
+fn parenthesize_breaking(
+  input: Document,
+  open_symbol: String,
+  close_symbol: String,
+) -> Document {
+  let open =
+    doc.from_string(open_symbol)
+    |> doc.append(doc.soft_break)
+  let close =
+    doc.from_string(close_symbol)
+    |> doc.prepend(doc.soft_break)
+  doc.concat([open, input, close])
 }
