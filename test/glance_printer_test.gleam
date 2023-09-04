@@ -1,59 +1,35 @@
+import gleam/string
 import gleeunit
 import gleeunit/should
 import glance
 import glance_printer
+import simplifile
+import gleam/io
+import gleam/list
 
 pub fn main() {
   gleeunit.main()
+}
+
+// Reads in gleam source code from ./test/gleam_examples and verifies that when parsed
+// and reprinted the format is unchanged
+pub fn file_runner_test() {
+  // For each file in gleam examples
+  let assert Ok(files) = simplifile.list_contents(of: "./test/gleam_examples")
+  let files =
+    files
+    |> list.map(fn(filename) { "./test/gleam_examples/" <> filename })
+  use file <- list.each(files)
+  let assert Ok(gleam_src) = simplifile.read(file)
+  identity(gleam_src)
 }
 
 // Takes in gleam source code, parses it using
 // glance, prints it using glance_printer,
 // and verifies the strings match.
 fn identity(src: String) {
-  let assert Ok(import_stmt) = glance.module(src)
-  import_stmt
+  let assert Ok(module) = glance.module(src)
+  module
   |> glance_printer.print
   |> should.equal(src)
 }
-
-// ------------- Import Tests ---------------------------
-
-pub fn basic_import_test() {
-  identity("import gleam/io")
-}
-
-pub fn import_with_alias_test() {
-  identity("import gleam/io as printing_stuff")
-}
-
-pub fn import_with_single_unqualified_import_test() {
-  identity("import gleam/option.{Option}")
-}
-
-pub fn import_with_multiple_unqualified_import_test() {
-  identity("import gleam/option.{Option, Some, None}")
-}
-
-pub fn import_with_unqualified_and_alias_test() {
-  identity("import gleam/option.{Option} as optional")
-}
-
-pub fn import_with_alias_for_unqualified_test() {
-  identity("import gleam/option.{Option as Optional}")
-}
-
-pub fn import_with_multiple_unqualified_imports_with_aliases_test() {
-  identity("import gleam/option.{Option as Optional, Some, None as Nothing}")
-}
-
-pub fn multiple_imports_test() {
-  identity("import gleam/io\nimport gleam/option as option_stuff")
-}
-// ------- Custom Types -----------------------
-
-// pub fn custom_type_test() {
-//   identity(
-//     "pub opaque type Cardinal(a, b) {\n  North\n East\n  South\n West\n}",
-//   )
-// }
