@@ -3,14 +3,17 @@ import gleam/string_builder.{StringBuilder}
 import gleam/string
 import gleam/option.{None, Option, Some}
 import glance.{
-  Clause, Constant, CustomType, Definition, Field, FunctionType, Import, Module,
-  NamedType, Private, Public, Publicity, TupleType, Type, TypeAlias, Variant,
+  Clause, Constant, CustomType, Definition, Expression, ExternalFunction,
+  ExternalType, Field, Float, FunctionType, Import, Int, Module, NamedType,
+  NegateBool, NegateInt, Private, Public, Publicity, String, TupleType, Type,
+  TypeAlias, Variable, VariableType, Variant,
 }
 import glam/doc.{Document}
 import gleam/io
 
 /// Stringify a gleam module
 pub fn print(module module: Module) -> String {
+  // Imports joined separately because they're only separated by one line
   let imports = case module.imports {
     [] -> None
     _ ->
@@ -30,8 +33,16 @@ pub fn print(module module: Module) -> String {
     module.type_aliases
     |> list.map(pretty_type_alias)
 
+  let constants =
+    module.constants
+    |> list.map(pretty_constant)
+
+  let external_types =
+    module.external_types
+    |> list.map(pretty_external_type)
+
   let the_rest =
-    [custom_types, type_aliases]
+    [custom_types, type_aliases, constants, external_types]
     |> list.filter(fn(lst) { !list.is_empty(lst) })
 
   let the_rest = case the_rest {
@@ -59,43 +70,83 @@ pub fn print(module module: Module) -> String {
   |> doc.to_string(80)
 }
 
-// Type Alias
+// External Type ----------------------------------
+
+fn pretty_external_type(external_type: Definition(ExternalType)) -> Document {
+  let Definition(attrs, ExternalType(name, publicity, paramters)) =
+    external_type
+
+  doc.empty
+}
+
+// Constant ---------------------------------------
+
+fn pretty_constant(constant: Definition(Constant)) -> Document {
+  let Definition(_, Constant(name, publicity, annotation, value)) = constant
+
+  let annotation = case annotation {
+    Some(type_) -> {
+      doc.from_string(": ")
+      |> doc.append(pretty_type(type_))
+    }
+    None -> doc.empty
+  }
+
+  pretty_publicity(publicity)
+  |> doc.append(doc.from_string("const " <> name))
+  |> doc.append(annotation)
+  |> doc.append(doc.from_string(" ="))
+  |> doc.append(doc.space)
+  |> doc.append(pretty_expression(value))
+}
+
+// Expression -------------------------------------
+
+fn pretty_expression(expression: Expression) -> Document {
+  case expression {
+    Int(val) -> doc.from_string(val)
+    Float(val) -> doc.from_string(val)
+    String(val) -> doc.from_string("\"" <> val <> "\"")
+    Variable(name) -> doc.from_string(name)
+    NegateInt(expr) ->
+      doc.from_string("-")
+      |> doc.append(pretty_expression(expr))
+    NegateBool(expr) ->
+      doc.from_string("!")
+      |> doc.append(pretty_expression(expr))
+    _ -> todo
+  }
+}
+
+// Type Alias -------------------------------------
 
 fn pretty_type_alias(type_alias: Definition(TypeAlias)) -> Document {
   let Definition(_, TypeAlias(name, publicity, parameters, aliased)) =
     type_alias
 
   pretty_publicity(publicity)
-  |> doc.append(doc.from_string("type " <> name <> " ="))
+  |> doc.append(doc.from_string("type " <> name))
+  |> doc.append(pretty_generic_type_parameters(parameters))
+  |> doc.append(doc.from_string(" ="))
   |> doc.append(doc.line)
   |> doc.nest(2)
   |> doc.append(pretty_type(aliased))
 }
 
-// Type
+// Type -------------------------------------------------
 
 fn pretty_type(type_: Type) -> Document {
   case type_ {
     NamedType(name, module, parameters) -> {
-      let module =
-        module
-        |> option.map(fn(mod) { mod <> "." })
-        |> option.map(doc.from_string)
-        |> option.unwrap(or: doc.empty)
-
-      let parameters = case parameters {
-        [] -> doc.empty
-        _ -> {
-          parameters
-          |> list.map(pretty_type)
-          |> comma_separated
-          |> parenthesize_breaking("(", ")")
-        }
-      }
-
       module
+      |> option.map(fn(mod) { mod <> "." })
+      |> option.map(doc.from_string)
+      |> option.unwrap(or: doc.empty)
       |> doc.append(doc.from_string(name))
-      |> doc.append(parameters)
+      |> doc.append(
+        parameters
+        |> pretty_function_type_parameters(parenthesize_if_empty: False),
+      )
     }
     TupleType(elements) -> {
       elements
@@ -104,19 +155,50 @@ fn pretty_type(type_: Type) -> Document {
       |> parenthesize_breaking("#(", ")")
     }
     FunctionType(parameters, return) -> {
-      let parameters =
-        parameters
-        |> list.map(pretty_type)
-        |> comma_separated
-        |> parenthesize_breaking("(", ")")
-      let return = pretty_type(return)
-
       doc.from_string("fn")
-      |> doc.append(parameters)
+      |> doc.append(
+        parameters
+        |> pretty_function_type_parameters(parenthesize_if_empty: True),
+      )
       |> doc.append(doc.from_string(" -> "))
-      |> doc.append(return)
+      |> doc.append(
+        return
+        |> pretty_type,
+      )
     }
-    _ -> todo
+    VariableType(name) -> doc.from_string(name)
+  }
+}
+
+// Generic type parameters are comma separated strings, wrapped in parentheses.
+fn pretty_generic_type_parameters(parameters: List(String)) -> Document {
+  case parameters {
+    [] -> doc.empty
+    _ -> {
+      parameters
+      |> list.map(doc.from_string)
+      |> comma_separated
+      |> parenthesize_breaking("(", ")")
+    }
+  }
+}
+
+// Function parameters are comma separated types wrapped in parentheses.
+// If the list is empty, parentheses may or may not be rendered depending on the situation 
+// (normal function -> yes, type constructor -> no, etc.)
+fn pretty_function_type_parameters(
+  parameters: List(Type),
+  parenthesize_if_empty pie: Bool,
+) -> Document {
+  case parameters, pie {
+    [], False -> doc.empty
+    [], True -> doc.from_string("()")
+    _, _ -> {
+      parameters
+      |> list.map(pretty_type)
+      |> comma_separated
+      |> parenthesize_breaking("(", ")")
+    }
   }
 }
 
@@ -136,16 +218,6 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
     False -> ""
   }
 
-  // Type paramters
-  let parameters = case parameters {
-    [] -> doc.empty
-    _ ->
-      parameters
-      |> list.map(doc.from_string)
-      |> comma_separated
-      |> parenthesize_breaking("(", ")")
-  }
-
   // Custom types variants
   let variants =
     variants
@@ -158,7 +230,10 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
 
   doc.from_string(opaque_ <> "type " <> name)
   |> doc.prepend(publicity)
-  |> doc.append(parameters)
+  |> doc.append(
+    parameters
+    |> pretty_generic_type_parameters,
+  )
   |> doc.append(doc.from_string(" "))
   |> doc.append(variants)
 }
