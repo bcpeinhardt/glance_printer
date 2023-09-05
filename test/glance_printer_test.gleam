@@ -36,7 +36,7 @@ fn identity(src: String) {
         gap.compare_strings(src, printed)
         |> gap.to_styled
       testbldr.fail(
-        "\n\nlhs:" <> comparison.first <> "\nrhs: " <> comparison.second,
+        "\n\nlhs:\n" <> comparison.first <> "\nrhs:\n" <> comparison.second,
       )
     }
   }
