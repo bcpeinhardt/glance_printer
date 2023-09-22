@@ -3,14 +3,18 @@ import gleam/string_builder.{StringBuilder}
 import gleam/string
 import gleam/option.{None, Option, Some}
 import glance.{
-  Block, Clause, Constant, CustomType, Definition, Discarded, Expression,
-  ExternalFunction, ExternalType, Field, Float, Fn, FnParameter, Function,
-  FunctionParameter, FunctionType, Import, Int, Module, Named, NamedType,
-  NegateBool, NegateInt, Panic, Private, Public, Publicity, Statement, String,
-  Todo, Tuple, TupleType, Type, TypeAlias, Variable, VariableType, Variant,
+  Assert, Assignment, AssignmentName, Block, Clause, Constant, CustomType,
+  Definition, Discarded, Expression, ExternalFunction, ExternalType, Field,
+  Float, Fn, FnParameter, Function, FunctionParameter, FunctionType, Import, Int,
+  Let, Module, Named, NamedType, NegateBool, NegateInt, Panic, Pattern,
+  PatternAssignment, PatternConcatenate, PatternDiscard, PatternFloat,
+  PatternInt, PatternList, PatternString, PatternTuple, PatternVariable, Private,
+  Public, Publicity, RecordUpdate, Statement, String, Todo, Tuple, TupleType,
+  Type, TypeAlias, Variable, VariableType, Variant,
 }
 import glam/doc.{Document}
 import gleam/io
+import gleam/int
 
 /// Pretty print a gleam module
 pub fn print(module module: Module) -> String {
@@ -24,8 +28,6 @@ pub fn print(module module: Module) -> String {
     functions,
   ) = module
 
-  let double_line_break = doc.concat([doc.line, doc.line])
-
   // Everything gets reversed during parsing (lists, am I right?)
   // so we re-reverse them
   // Imports get added separately because they're separated with one
@@ -38,62 +40,150 @@ pub fn print(module module: Module) -> String {
   ]
   |> list.filter(fn(lst) { !list.is_empty(lst) })
   |> list.map(list.reverse)
-  |> list.map(doc.join(_, with: double_line_break))
+  |> list.map(doc.join(_, with: doc.lines(2)))
   |> list.prepend(
     imports
     |> list.reverse
     |> list.map(pretty_import)
     |> doc.join(with: doc.line),
   )
-  |> doc.join(with: double_line_break)
+  |> doc.join(with: doc.lines(2))
   |> doc.to_string(80)
   |> string.trim <> "\n"
 }
 
 /// Pretty print a top level function
 fn pretty_function(function: Definition(Function)) -> Document {
-  let Definition(_, Function(name, publicity, parameters, return, body, _)) =
-    function
+  let Definition(
+    _,
+    Function(name, publicity, parameters, return, statements, _),
+  ) = function
 
-  let publicity = case publicity {
-    Public -> doc.from_string("pub ")
-    Private -> doc.empty
-  }
-
-  let parameters =
+  let comma_separated_parameters =
     parameters
     |> list.map(pretty_function_parameters)
-    |> doc.join(with: doc.concat([doc.from_string(","), doc.space]))
+    |> doc.concat_join([doc.from_string(","), doc.space])
     |> doc.group
-    |> doc.prepend(doc.concat([doc.from_string("("), doc.soft_break]))
-    |> doc.nest(by: 2)
-    |> doc.append(doc.concat([doc.soft_break, doc.from_string(")")]))
 
-  let return = case return {
-    Some(type_) ->
-      doc.from_string(" -> ")
-      |> doc.append(pretty_type(type_))
+  let wrapped_parameters =
+    doc.concat([doc.from_string("("), doc.soft_break])
+    |> doc.append(comma_separated_parameters)
+    |> doc.nest(by: 2)
+    |> doc.append_docs([doc.soft_break, doc.from_string(")")])
+
+  let return_signature = case return {
+    Some(type_) -> doc.concat([doc.from_string(" -> "), pretty_type(type_)])
     None -> doc.empty
   }
 
-  let body =
-    body
+  let statements =
+    statements
     |> list.map(pretty_statement)
     |> doc.join(with: doc.line)
-    |> doc.prepend(doc.concat([doc.space, doc.from_string("{"), doc.line]))
-    |> doc.nest(2)
-    |> doc.append(doc.concat([doc.line, doc.from_string("}")]))
 
-  publicity
-  |> doc.append(doc.from_string("fn " <> name))
-  |> doc.append(parameters)
-  |> doc.append(return)
-  |> doc.append(body)
+  let body =
+    doc.concat([doc.from_string(" {"), doc.line])
+    |> doc.append(statements)
+    |> doc.nest(2)
+    |> doc.append_docs([doc.line, doc.from_string("}")])
+
+  [
+    pretty_public(publicity),
+    doc.from_string("fn " <> name),
+    wrapped_parameters,
+    return_signature,
+    body,
+  ]
+  |> doc.concat
 }
 
+/// Pretty print a statement
 fn pretty_statement(statement: Statement) -> Document {
   case statement {
     Expression(expression) -> pretty_expression(expression)
+    Assignment(kind, pattern, annotation, value) -> {
+      let let_declaration = case kind {
+        Let -> doc.from_string("let ")
+        Assert -> doc.from_string("let assert ")
+      }
+
+      let type_annotation = case annotation {
+        Some(t) -> doc.concat([doc.from_string(": "), pretty_type(t)])
+        None -> doc.empty
+      }
+
+      [
+        let_declaration,
+        pretty_pattern(pattern),
+        type_annotation,
+        doc.from_string(" = "),
+        pretty_expression(value),
+      ]
+      |> doc.concat
+    }
+    _ -> todo
+  }
+}
+
+/// Pretty print a "pattern" (anything that could go in a pattern match branch)
+fn pretty_pattern(pattern: Pattern) -> Document {
+  case pattern {
+    // Basic patterns
+    PatternInt(val)
+    | PatternFloat(val)
+    | PatternString(val)
+    | PatternVariable(val) -> doc.from_string(val)
+
+    // A discarded value should start with an underscore
+    PatternDiscard(val) -> doc.from_string("_" <> val)
+
+    // A tuple pattern
+    PatternTuple(elements) -> {
+      let comma_separated_elements =
+        elements
+        |> list.map(pretty_pattern)
+        |> doc.concat_join([doc.from_string(","), doc.space])
+        |> doc.group
+
+      doc.concat([doc.from_string("#("), doc.soft_break])
+      |> doc.append(comma_separated_elements)
+      |> doc.nest(2)
+      |> doc.append_docs([trailing_comma(), doc.from_string(")")])
+      |> doc.group
+    }
+
+    // A list pattern
+    PatternList(elements, tail) -> {
+      let tail =
+        tail
+        |> option.map(pretty_pattern)
+        |> option.map(doc.prepend(_, doc.from_string("..")))
+
+      let comma_separated_items =
+        elements
+        |> list.map(pretty_pattern)
+        |> list.append(option.values([tail]))
+        |> doc.concat_join([doc.from_string(","), doc.space])
+        |> doc.group
+
+      doc.concat([doc.from_string("["), doc.soft_break])
+      |> doc.append(comma_separated_items)
+      |> doc.nest(by: 2)
+      |> doc.append_docs([doc.soft_break, doc.from_string("]")])
+      |> doc.group
+    }
+
+    // Pattern for renaming something with "as"
+    PatternAssignment(pattern, name) -> {
+      [pretty_pattern(pattern), doc.from_string(" as " <> name)]
+      |> doc.concat
+    }
+
+    // Pattern for pulling off the front end of a string
+    PatternConcatenate(left, right) -> {
+      [doc.from_string("\"" <> left <> "\" <> "), pretty_assignment_name(right)]
+      |> doc.concat
+    }
     _ -> todo
   }
 }
@@ -104,10 +194,6 @@ fn pretty_function_parameters(parameter: FunctionParameter) -> Document {
     Some(l) -> doc.from_string(l <> " ")
     None -> doc.empty
   }
-  let name = case name {
-    Named(n) -> doc.from_string(n)
-    Discarded(_) -> doc.empty
-  }
   let type_ = case type_ {
     Some(t) ->
       pretty_type(t)
@@ -116,7 +202,7 @@ fn pretty_function_parameters(parameter: FunctionParameter) -> Document {
   }
 
   label
-  |> doc.append(name)
+  |> doc.append(pretty_assignment_name(name))
   |> doc.append(type_)
 }
 
@@ -124,11 +210,6 @@ fn pretty_function_parameters(parameter: FunctionParameter) -> Document {
 
 fn pretty_constant(constant: Definition(Constant)) -> Document {
   let Definition(_, Constant(name, publicity, annotation, value)) = constant
-
-  let publicity = case publicity {
-    Public -> doc.from_string("pub ")
-    Private -> doc.empty
-  }
 
   let annotation = case annotation {
     Some(type_) -> {
@@ -138,7 +219,7 @@ fn pretty_constant(constant: Definition(Constant)) -> Document {
     None -> doc.empty
   }
 
-  publicity
+  pretty_public(publicity)
   |> doc.append(doc.from_string("const " <> name))
   |> doc.append(annotation)
   |> doc.append(doc.from_string(" ="))
@@ -184,10 +265,9 @@ fn pretty_expression(expression: Expression) -> Document {
       expressions
       |> list.map(pretty_expression)
       |> doc.join(with: doc.concat([doc.from_string(","), doc.space]))
-      |> doc.group
       |> doc.prepend(doc.concat([doc.from_string("#("), doc.soft_break]))
       |> doc.nest(by: 2)
-      |> doc.append(doc.concat([doc.soft_break, doc.from_string(")")]))
+      |> doc.append(doc.concat([trailing_comma(), doc.from_string(")")]))
       |> doc.group
     }
     glance.List(elements, rest) -> {
@@ -246,20 +326,22 @@ fn pretty_expression(expression: Expression) -> Document {
       |> doc.append(return)
       |> doc.append(body)
     }
+    RecordUpdate(module, constructor, record, fields) -> {
+      doc.empty
+    }
     _ -> todo
   }
 }
 
 fn pretty_fn_parameter(fn_parameter: FnParameter) -> Document {
   let FnParameter(name, type_) = fn_parameter
-  case name, type_ {
-    Named(str), Some(t) -> {
-      doc.from_string(str <> ": ")
-      |> doc.append(pretty_type(t))
-    }
-    Named(str), None -> doc.from_string(str)
-    Discarded(_), _ -> panic as "This should be unreachable"
-  }
+  let type_ =
+    type_
+    |> option.map(pretty_type)
+    |> option.map(doc.prepend(_, doc.from_string(": ")))
+  [pretty_assignment_name(name)]
+  |> list.append(option.values([type_]))
+  |> doc.concat
 }
 
 // Type Alias -------------------------------------
@@ -267,11 +349,6 @@ fn pretty_fn_parameter(fn_parameter: FnParameter) -> Document {
 fn pretty_type_alias(type_alias: Definition(TypeAlias)) -> Document {
   let Definition(_, TypeAlias(name, publicity, parameters, aliased)) =
     type_alias
-
-  let publicity = case publicity {
-    Public -> doc.from_string("pub ")
-    Private -> doc.empty
-  }
 
   let parameters = case parameters {
     [] -> doc.empty
@@ -285,7 +362,7 @@ fn pretty_type_alias(type_alias: Definition(TypeAlias)) -> Document {
     }
   }
 
-  publicity
+  pretty_public(publicity)
   |> doc.append(doc.from_string("type " <> name))
   |> doc.append(parameters)
   |> doc.append(doc.from_string(" ="))
@@ -363,12 +440,6 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
   let Definition(_, CustomType(name, publicity, opaque_, parameters, variants)) =
     type_
 
-  // Public or Private
-  let publicity = case publicity {
-    Public -> doc.from_string("pub ")
-    Private -> doc.empty
-  }
-
   // Opaque or not
   let opaque_ = case opaque_ {
     True -> "opaque "
@@ -398,7 +469,7 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
     |> doc.group
 
   doc.from_string(opaque_ <> "type " <> name)
-  |> doc.prepend(publicity)
+  |> doc.prepend(pretty_public(publicity))
   |> doc.append(parameters)
   |> doc.append(doc.from_string(" "))
   |> doc.append(variants)
@@ -452,7 +523,7 @@ fn pretty_import(import_: Definition(Import)) -> Document {
       |> doc.group
       |> doc.prepend(doc.concat([doc.from_string(".{"), doc.soft_break]))
       |> doc.nest(by: 2)
-      |> doc.append(doc.concat([doc.break("", ","), doc.from_string("}")]))
+      |> doc.append(doc.concat([trailing_comma(), doc.from_string("}")]))
       |> doc.group
   }
 
@@ -461,11 +532,25 @@ fn pretty_import(import_: Definition(Import)) -> Document {
   |> doc.append(pretty_alias(alias))
 }
 
-fn maybe_append(document: Document, maybe: Option(Document)) -> Document {
-  case maybe {
-    Some(thing) ->
-      document
-      |> doc.append(thing)
-    None -> document
+// -------------- Helpers -------------------------
+
+// Prints the pub keyword
+fn pretty_public(publicity: Publicity) -> Document {
+  case publicity {
+    Public -> doc.from_string("pub ")
+    Private -> doc.empty
   }
+}
+
+fn pretty_assignment_name(assignment_name: AssignmentName) -> Document {
+  case assignment_name {
+    Named(str) -> doc.from_string(str)
+    Discarded(str) -> doc.from_string("_" <> str)
+  }
+}
+
+// A comma that only prints when the 
+// group is broken
+fn trailing_comma() -> Document {
+  doc.break("", ",")
 }

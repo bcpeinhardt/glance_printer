@@ -16,6 +16,35 @@ fn foo() {
   todo
   todo as "Some message"
   #(1, "text", True, x)
+  #(
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+  )
   [1, 2, 3, 4, ..[5, 6, 7]]
   fn(input: Int, another_input) -> Int {
     input
