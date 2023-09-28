@@ -1,3 +1,5 @@
+import gleam/list
+
 const x = 5
 
 fn foo() {
@@ -51,4 +53,21 @@ fn foo() {
     another_input
     10
   }
+  #(1, 2).0
+  let x = #(3, 4)
+  x.1
+  let identity = list.map(_, fn(x) { x })
+  let drop = fn(thing) { todo }
+  <<"hello":utf8>>
+  <<
+    0:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1,
+    1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1,
+  >>
+  <<3:size(4)-unit(4)>>
+  let assert <<"Hello Gleam 💫":utf8>> = <<"Hello Gleam 💫":utf8>>
+  case 2, 3 {
+    2, 3 | 2, 4 -> True
+    _, _ if False -> False
+  }
+  4 == 2 + 2
 }
