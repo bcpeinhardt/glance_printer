@@ -1,28 +1,28 @@
 import gleam/list
-import gleam/string_builder.{StringBuilder}
 import gleam/string
 import gleam/option.{None, Option, Some}
 import glance.{
   AddFloat, AddInt, And, Assert, Assignment, AssignmentName, BigOption,
   BinaryOperator, BinaryOption, BitString, BitStringOption,
   BitStringSegmentOption, Block, Call, Case, Clause, Concatenate, Constant,
-  CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression,
-  ExternalFunction, ExternalType, Field, FieldAccess, Float, FloatOption, Fn,
-  FnCapture, FnParameter, Function, FunctionParameter, FunctionType, GtEqFloat,
-  GtEqInt, GtFloat, GtInt, Import, Int, IntOption, Let, LittleOption, LtEqFloat,
-  LtEqInt, LtFloat, LtInt, Module, MultFloat, MultInt, Named, NamedType,
-  NativeOption, NegateBool, NegateInt, NotEq, Or, Panic, Pattern,
-  PatternAssignment, PatternBitString, PatternConcatenate, PatternConstructor,
-  PatternDiscard, PatternFloat, PatternInt, PatternList, PatternString,
-  PatternTuple, PatternVariable, Pipe, Private, Public, Publicity, RecordUpdate,
-  RemainderInt, SignedOption, SizeOption, SizeValueOption, Statement, String,
-  SubFloat, SubInt, Todo, Tuple, TupleIndex, TupleType, Type, TypeAlias,
-  UnitOption, UnsignedOption, Use, Utf16CodepointOption, Utf16Option,
-  Utf32CodepointOption, Utf32Option, Utf8CodepointOption, Utf8Option, Variable,
-  VariableType, Variant,
+  CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression, Field,
+  FieldAccess, Float, FloatOption, Fn, FnCapture, FnParameter, Function,
+  FunctionParameter, FunctionType, GtEqFloat, GtEqInt, GtFloat, GtInt, Import,
+  Int, IntOption, Let, LittleOption, LtEqFloat, LtEqInt, LtFloat, LtInt, Module,
+  MultFloat, MultInt, Named, NamedType, NativeOption, NegateBool, NegateInt,
+  NotEq, Or, Panic, Pattern, PatternAssignment, PatternBitString,
+  PatternConcatenate, PatternConstructor, PatternDiscard, PatternFloat,
+  PatternInt, PatternList, PatternString, PatternTuple, PatternVariable, Pipe,
+  Private, Public, Publicity, RecordUpdate, RemainderInt, SignedOption,
+  SizeOption, SizeValueOption, Statement, String, SubFloat, SubInt, Todo, Tuple,
+  TupleIndex, TupleType, Type, TypeAlias, UnitOption, UnsignedOption, Use,
+  Utf16CodepointOption, Utf16Option, Utf32CodepointOption, Utf32Option,
+  Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
 }
 import glam/doc.{Document}
-import gleam/io
+import internal/doc_extras.{
+  comma_separated_in_parentheses, nbsp, nest, trailing_comma,
+}
 import gleam/int
 
 /// Pretty print a gleam module
@@ -32,15 +32,11 @@ pub fn print(module module: Module) -> String {
     custom_types,
     type_aliases,
     constants,
-    external_types,
-    external_functions,
+    _external_types,
+    _external_functions,
     functions,
   ) = module
 
-  // Everything gets reversed during parsing (lists, am I right?)
-  // so we re-reverse them
-  // Imports get added separately because they're separated with one
-  // line break not two
   [
     list.map(custom_types, pretty_custom_type),
     list.map(type_aliases, pretty_type_alias),
@@ -219,7 +215,7 @@ fn pretty_block(of statements: List(Statement)) -> Document {
   // A block gets wrapped in squiggly brackets and indented
   doc.concat([doc.from_string("{"), doc.line])
   |> doc.append(statements)
-  |> doc.nest(2)
+  |> nest
   |> doc.append_docs([doc.line, doc.from_string("}")])
 }
 
@@ -231,7 +227,7 @@ fn pretty_tuple(with elements: List(Document)) -> Document {
 
   doc.concat([doc.from_string("#("), doc.soft_break])
   |> doc.append(comma_separated_elements)
-  |> doc.nest(by: 2)
+  |> nest
   |> doc.append(doc.concat([trailing_comma(), doc.from_string(")")]))
   |> doc.group
 }
@@ -252,20 +248,8 @@ fn pretty_list(
 
   doc.concat([doc.from_string("["), doc.soft_break])
   |> doc.append(comma_separated_items)
-  |> doc.nest(by: 2)
+  |> nest
   |> doc.append_docs([doc.soft_break, doc.from_string("]")])
-  |> doc.group
-}
-
-fn comma_separated_in_parentheses(arguments: List(Document)) -> Document {
-  let comma_separated_arguments =
-    arguments
-    |> doc.join(with: doc.concat([doc.from_string(","), doc.space]))
-
-  doc.concat([doc.from_string("("), doc.soft_break])
-  |> doc.append(comma_separated_arguments)
-  |> doc.nest(by: 2)
-  |> doc.append_docs([trailing_comma(), doc.from_string(")")])
   |> doc.group
 }
 
@@ -425,7 +409,7 @@ fn pretty_expression(expression: Expression) -> Document {
       |> doc.append(subjects)
       |> doc.append_docs([doc.from_string(" {"), doc.line])
       |> doc.append(clauses)
-      |> doc.nest(by: 2)
+      |> nest
       |> doc.append_docs([doc.line, doc.from_string("}")])
     }
     BinaryOperator(name, left, right) -> {
@@ -490,7 +474,7 @@ fn pretty_bitstring(
   [doc.from_string("<<"), doc.soft_break]
   |> doc.concat
   |> doc.append(segments)
-  |> doc.nest(by: 2)
+  |> nest
   |> doc.append_docs([trailing_comma(), doc.from_string(">>")])
   |> doc.group
 }
@@ -543,7 +527,7 @@ fn pretty_fn(
     [statement] ->
       doc.concat([doc.from_string("{"), doc.space])
       |> doc.append(pretty_statement(statement))
-      |> doc.nest(by: 2)
+      |> nest
       |> doc.append_docs([doc.space, doc.from_string("}")])
       |> doc.group
 
@@ -589,7 +573,7 @@ fn pretty_type_alias(type_alias: Definition(TypeAlias)) -> Document {
   |> doc.append(parameters)
   |> doc.append(doc.from_string(" ="))
   |> doc.append(doc.line)
-  |> doc.nest(2)
+  |> nest
   |> doc.append(pretty_type(aliased))
 }
 
@@ -661,7 +645,7 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
   let type_body =
     doc.concat([doc.from_string("{"), doc.line])
     |> doc.append(variants)
-    |> doc.nest(2)
+    |> nest
     |> doc.append_docs([doc.line, doc.from_string("}")])
     |> doc.group
 
@@ -708,7 +692,7 @@ fn pretty_import(import_: Definition(Import)) -> Document {
       |> doc.concat_join([doc.from_string(","), doc.flex_break(" ", "")])
       |> doc.group
       |> doc.prepend(doc.concat([doc.from_string(".{"), doc.soft_break]))
-      |> doc.nest(by: 2)
+      |> nest
       |> doc.append(doc.concat([trailing_comma(), doc.from_string("}")]))
       |> doc.group
   }
@@ -763,17 +747,4 @@ fn pretty_as(name: Option(String)) -> Document {
     Some(str) -> doc.from_string(" as " <> str)
     None -> doc.empty
   }
-}
-
-// -------------- Formatting Helpers -------------------------
-
-// A comma that only prints when the 
-// group is broken
-fn trailing_comma() -> Document {
-  doc.break("", ",")
-}
-
-// A non breaking space
-fn nbsp() -> Document {
-  doc.from_string(" ")
 }
