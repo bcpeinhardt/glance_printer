@@ -2,8 +2,8 @@ import gleam/list
 import gleam/string
 import gleam/option.{None, Option, Some}
 import glance.{
-  AddFloat, AddInt, And, Assert, Assignment, AssignmentName, BigOption,
-  BinaryOperator, BinaryOption, BitString, BitStringOption,
+  AddFloat, AddInt, And, Assert, Assignment, AssignmentName, Attribute,
+  BigOption, BinaryOperator, BinaryOption, BitString, BitStringOption,
   BitStringSegmentOption, Block, Call, Case, Clause, Concatenate, Constant,
   CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression, Field,
   FieldAccess, Float, FloatOption, Fn, FnCapture, FnParameter, Function,
@@ -37,45 +37,76 @@ pub fn print(module module: Module) -> String {
     functions,
   ) = module
 
-  [
-    list.map(custom_types, pretty_custom_type),
-    list.map(type_aliases, pretty_type_alias),
-    list.map(constants, pretty_constant),
-    list.map(functions, pretty_function),
-  ]
-  |> list.filter(fn(lst) { !list.is_empty(lst) })
-  |> list.map(list.reverse)
-  |> list.map(doc.join(_, with: doc.lines(2)))
-  |> list.prepend(
+  // Handle imports separately because they're joined with only on line break
+  let imports =
     imports
     |> list.reverse
     |> list.map(pretty_import)
-    |> doc.join(with: doc.line),
-  )
+    |> doc.join(with: doc.line)
+
+  // Everything elses gets separated by an empty line (2 line breaks)
+  let the_rest =
+    [
+      list.map(custom_types, pretty_custom_type),
+      list.map(type_aliases, pretty_type_alias),
+      list.map(constants, pretty_constant),
+      list.map(functions, pretty_function),
+    ]
+    |> list.filter(fn(lst) { !list.is_empty(lst) })
+    |> list.map(list.reverse)
+    |> list.map(doc.join(_, with: doc.lines(2)))
+
+  [imports, ..the_rest]
   |> doc.join(with: doc.lines(2))
   |> doc.to_string(80)
   |> string.trim <> "\n"
 }
 
+fn pretty_definition(
+  definition: Definition(inner),
+  inner_to_doc: fn(inner) -> Document,
+) -> Document {
+  let Definition(attributes, definition) = definition
+  attributes
+  |> list.map(pretty_attribute)
+  |> list.append([inner_to_doc(definition)])
+  |> doc.join(with: doc.line)
+}
+
+fn pretty_attribute(attribute: Attribute) -> Document {
+  let Attribute(name, arguments) = attribute
+  let arguments =
+    arguments
+    |> list.map(pretty_expression)
+    |> doc_extras.comma_separated_in_parentheses
+  [doc.from_string("@" <> name), arguments]
+  |> doc.concat
+}
+
 /// Pretty print a top level function.
 fn pretty_function(function: Definition(Function)) -> Document {
-  let Definition(
-    _,
-    Function(name, publicity, parameters, return, statements, _),
-  ) = function
+  use Function(name, publicity, parameters, return, statements, _) <- pretty_definition(
+    function,
+  )
 
   let parameters =
     parameters
     |> list.map(pretty_function_parameter)
     |> comma_separated_in_parentheses
 
+  let statements = case statements {
+    [] -> doc.empty
+    _ ->
+      [nbsp(), pretty_block(of: statements)]
+      |> doc.concat
+  }
+
   [
     pretty_public(publicity),
     doc.from_string("fn " <> name),
     parameters,
     pretty_return_signature(return),
-    nbsp(),
-    pretty_block(of: statements),
+    statements,
   ]
   |> doc.concat
 }
@@ -191,7 +222,9 @@ fn pretty_pattern(pattern: Pattern) -> Document {
 
 // Pretty print a constant
 fn pretty_constant(constant: Definition(Constant)) -> Document {
-  let Definition(_, Constant(name, publicity, annotation, value)) = constant
+  use Constant(name, publicity, annotation, value) <- pretty_definition(
+    constant,
+  )
 
   [
     pretty_public(publicity),
@@ -556,8 +589,9 @@ fn pretty_fn_parameter(fn_parameter: FnParameter) -> Document {
 // Type Alias -------------------------------------
 
 fn pretty_type_alias(type_alias: Definition(TypeAlias)) -> Document {
-  let Definition(_, TypeAlias(name, publicity, parameters, aliased)) =
-    type_alias
+  use TypeAlias(name, publicity, parameters, aliased) <- pretty_definition(
+    type_alias,
+  )
 
   let parameters = case parameters {
     [] -> doc.empty
@@ -614,12 +648,10 @@ fn pretty_type(type_: Type) -> Document {
   }
 }
 
-// Custom Types --------------------------------------
-
 fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
-  // Destructure
-  let Definition(_, CustomType(name, publicity, opaque_, parameters, variants)) =
-    type_
+  use CustomType(name, publicity, opaque_, parameters, variants) <- pretty_definition(
+    type_,
+  )
 
   // Opaque or not
   let opaque_ = case opaque_ {
@@ -680,7 +712,7 @@ fn pretty_field(field: Field(a), a_to_doc: fn(a) -> Document) -> Document {
 
 // Pretty print an import statement
 fn pretty_import(import_: Definition(Import)) -> Document {
-  let Definition(_, Import(module, alias, unqualifieds)) = import_
+  use Import(module, alias, unqualifieds) <- pretty_definition(import_)
 
   let unqualifieds = case unqualifieds {
     [] -> doc.empty

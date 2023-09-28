@@ -21,14 +21,16 @@ pub fn nbsp() -> Document {
   doc.from_string(" ")
 }
 
+/// Take a list of documents, separate them with commas, and wrap
+/// them in parentheses. Provides a trailing comma on breaking.
 pub fn comma_separated_in_parentheses(arguments: List(Document)) -> Document {
   let comma_separated_arguments =
     arguments
-    |> doc.join(with: doc.concat([doc.from_string(","), doc.space]))
+    |> doc.concat_join([doc.from_string(","), doc.space])
 
   doc.concat([doc.from_string("("), doc.soft_break])
   |> doc.append(comma_separated_arguments)
-  |> doc.nest(by: 2)
+  |> nest
   |> doc.append_docs([trailing_comma(), doc.from_string(")")])
   |> doc.group
 }
