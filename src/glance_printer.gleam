@@ -25,7 +25,7 @@ import internal/doc_extras.{
 }
 import gleam/int
 
-/// Pretty print a gleam module
+/// Pretty print a glance module
 pub fn print(module module: Module) -> String {
   let Module(
     imports,
