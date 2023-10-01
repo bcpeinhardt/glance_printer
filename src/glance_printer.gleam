@@ -20,7 +20,7 @@ import glance.{
   Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
 }
 import glam/doc.{Document}
-import internal/doc_extras.{
+import glance_printer/internal/doc_extras.{
   comma_separated_in_parentheses, nbsp, nest, trailing_comma,
 }
 import gleam/int
