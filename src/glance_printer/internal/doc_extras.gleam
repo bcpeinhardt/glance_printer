@@ -2,7 +2,7 @@
 //// to separate out helpers that don't actually have anything
 //// to do with glance.
 
-import glam/doc.{Document}
+import glam/doc.{type Document}
 
 /// The indent for nesting is always 2 spaces, so we don't
 /// need to keep typing it all the time.

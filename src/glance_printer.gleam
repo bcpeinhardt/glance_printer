@@ -1,25 +1,28 @@
 import gleam/list
 import gleam/string
-import gleam/option.{None, Option, Some}
+import gleam/option.{type Option, None, Some}
 import glance.{
-  AddFloat, AddInt, And, Assert, Assignment, AssignmentName, Attribute,
-  BigOption, BinaryOperator, BinaryOption, BitString, BitStringOption,
-  BitStringSegmentOption, Block, Call, Case, Clause, Concatenate, Constant,
+  type AssignmentName, type Attribute, type BinaryOperator,
+  type BitStringSegmentOption, type Constant, type CustomType, type Definition,
+  type Expression, type Field, type FnParameter, type Function,
+  type FunctionParameter, type Import, type Module, type Pattern, type Publicity,
+  type Statement, type Type, type TypeAlias, type Variant, AddFloat, AddInt, And,
+  Assert, Assignment, Attribute, BigOption, BinaryOperator, BinaryOption,
+  BitString, BitStringOption, Block, Call, Case, Clause, Concatenate, Constant,
   CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression, Field,
   FieldAccess, Float, FloatOption, Fn, FnCapture, FnParameter, Function,
   FunctionParameter, FunctionType, GtEqFloat, GtEqInt, GtFloat, GtInt, Import,
   Int, IntOption, Let, LittleOption, LtEqFloat, LtEqInt, LtFloat, LtInt, Module,
   MultFloat, MultInt, Named, NamedType, NativeOption, NegateBool, NegateInt,
-  NotEq, Or, Panic, Pattern, PatternAssignment, PatternBitString,
-  PatternConcatenate, PatternConstructor, PatternDiscard, PatternFloat,
-  PatternInt, PatternList, PatternString, PatternTuple, PatternVariable, Pipe,
-  Private, Public, Publicity, RecordUpdate, RemainderInt, SignedOption,
-  SizeOption, SizeValueOption, Statement, String, SubFloat, SubInt, Todo, Tuple,
-  TupleIndex, TupleType, Type, TypeAlias, UnitOption, UnsignedOption, Use,
-  Utf16CodepointOption, Utf16Option, Utf32CodepointOption, Utf32Option,
-  Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
+  NotEq, Or, Panic, PatternAssignment, PatternBitString, PatternConcatenate,
+  PatternConstructor, PatternDiscard, PatternFloat, PatternInt, PatternList,
+  PatternString, PatternTuple, PatternVariable, Pipe, Private, Public,
+  RecordUpdate, RemainderInt, SignedOption, SizeOption, SizeValueOption, String,
+  SubFloat, SubInt, Todo, Tuple, TupleIndex, TupleType, TypeAlias, UnitOption,
+  UnsignedOption, Use, Utf16CodepointOption, Utf16Option, Utf32CodepointOption,
+  Utf32Option, Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
 }
-import glam/doc.{Document}
+import glam/doc.{type Document}
 import glance_printer/internal/doc_extras.{
   comma_separated_in_parentheses, nbsp, nest, trailing_comma,
 }
@@ -58,8 +61,9 @@ pub fn print(module module: Module) -> String {
 
   [imports, ..the_rest]
   |> doc.join(with: doc.lines(2))
-  |> doc.to_string(80)
-  |> string.trim <> "\n"
+  |> doc.to_string(81)
+  |> string.trim
+  <> "\n"
 }
 
 fn pretty_definition(
@@ -353,14 +357,11 @@ fn pretty_expression(expression: Expression) -> Document {
         |> doc.concat
 
       let fields =
-        list.map(
-          fields,
-          fn(field) {
-            let #(name, expr) = field
-            [doc.from_string(name <> ": "), pretty_expression(expr)]
-            |> doc.concat
-          },
-        )
+        list.map(fields, fn(field) {
+          let #(name, expr) = field
+          [doc.from_string(name <> ": "), pretty_expression(expr)]
+          |> doc.concat
+        })
         |> list.prepend(record)
         |> comma_separated_in_parentheses
 
@@ -712,15 +713,30 @@ fn pretty_field(field: Field(a), a_to_doc: fn(a) -> Document) -> Document {
 
 // Pretty print an import statement
 fn pretty_import(import_: Definition(Import)) -> Document {
-  use Import(module, alias, unqualifieds) <- pretty_definition(import_)
+  use Import(module, alias, unqualified_types, unqualified_values) <- pretty_definition(
+    import_,
+  )
 
-  let unqualifieds = case unqualifieds {
+  let unqualified_values =
+    unqualified_values
+    |> list.map(fn(uq) {
+      doc.concat([doc.from_string(uq.name), pretty_as(uq.alias)])
+    })
+
+  let unqualified_types =
+    unqualified_types
+    |> list.map(fn(uq) {
+      doc.concat([
+        doc.from_string("type "),
+        doc.from_string(uq.name),
+        pretty_as(uq.alias),
+      ])
+    })
+
+  let unqualifieds = case list.append(unqualified_types, unqualified_values) {
     [] -> doc.empty
-    _ ->
-      unqualifieds
-      |> list.map(fn(uq) {
-        doc.concat([doc.from_string(uq.name), pretty_as(uq.alias)])
-      })
+    lst ->
+      lst
       |> doc.concat_join([doc.from_string(","), doc.flex_break(" ", "")])
       |> doc.group
       |> doc.prepend(doc.concat([doc.from_string(".{"), doc.soft_break]))
