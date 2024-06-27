@@ -1,5 +1,5 @@
 name = "glance_printer"
-version = "1.1.0"
+version = "1.2.0"
 description = "A pretty_printer for the glance AST"
 gleam = ">= 0.32.0"
 
@@ -12,7 +12,7 @@ repository = { type = "github", user = "bcpeinhardt", repo = "glance_printer" }
 
 [dependencies]
 gleam_stdlib = "~> 0.34 or ~> 1.0"
-glance = "~> 0.8.1"
+glance = "~> 0.11.0"
 glam = "~> 1.0"
 
 [dev-dependencies]

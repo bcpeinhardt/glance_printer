@@ -19,7 +19,7 @@ pub fn main() {
     13,
     14,
   )
-  let #(
+  let assert #(
     1,
     1,
     1,
@@ -76,7 +76,7 @@ pub fn main() {
     1,
     1,
   )
-  let [1, 2, ..rest] = [1, 2, 3, 4, 5]
-  let [1, 2, 3] as y = [1, 2, 3]
-  let "ok" <> _ending = "okay"
+  let assert [1, 2, ..rest] = [1, 2, 3, 4, 5]
+  let assert [1, 2, 3] as y = [1, 2, 3]
+  let assert "ok" <> _ending = "okay"
 }

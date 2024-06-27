@@ -1,8 +1,8 @@
-import gleam/string
 import glance
 import glance_printer
-import simplifile
 import gleam/list
+import gleam/string
+import simplifile
 import testbldr
 
 pub fn main() {

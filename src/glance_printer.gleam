@@ -1,6 +1,4 @@
-import gleam/list
-import gleam/string
-import gleam/option.{type Option, None, Some}
+import glam/doc.{type Document}
 import glance.{
   type AssignmentName, type Attribute, type BinaryOperator,
   type BitStringSegmentOption, type Constant, type CustomType, type Definition,
@@ -22,23 +20,17 @@ import glance.{
   UnsignedOption, Use, Utf16CodepointOption, Utf16Option, Utf32CodepointOption,
   Utf32Option, Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
 }
-import glam/doc.{type Document}
 import glance_printer/internal/doc_extras.{
   comma_separated_in_parentheses, nbsp, nest, trailing_comma,
 }
 import gleam/int
+import gleam/list
+import gleam/option.{type Option, None, Some}
+import gleam/string
 
 /// Pretty print a glance module
 pub fn print(module module: Module) -> String {
-  let Module(
-    imports,
-    custom_types,
-    type_aliases,
-    constants,
-    _external_types,
-    _external_functions,
-    functions,
-  ) = module
+  let Module(imports, custom_types, type_aliases, constants, functions) = module
 
   // Handle imports separately because they're joined with only on line break
   let imports =
@@ -316,7 +308,8 @@ fn pretty_expression(expression: Expression) -> Document {
     // Pretty print a panic
     Panic(msg) -> {
       case msg {
-        Some(str) -> doc.from_string("panic as \"" <> str <> "\"")
+        Some(expr) ->
+          doc.concat([doc.from_string("panic as "), pretty_expression(expr)])
         None -> doc.from_string("panic")
       }
     }
@@ -324,7 +317,8 @@ fn pretty_expression(expression: Expression) -> Document {
     // Pretty print a todo
     Todo(msg) -> {
       case msg {
-        Some(str) -> doc.from_string("todo as \"" <> str <> "\"")
+        Some(expr) ->
+          doc.concat([doc.from_string("todo as "), pretty_expression(expr)])
         None -> doc.from_string("todo")
       }
     }
@@ -646,6 +640,7 @@ fn pretty_type(type_: Type) -> Document {
       |> doc.append(pretty_return_signature(Some(return)))
     }
     VariableType(name) -> doc.from_string(name)
+    glance.HoleType(name) -> doc.from_string(name)
   }
 }
 
@@ -745,9 +740,17 @@ fn pretty_import(import_: Definition(Import)) -> Document {
       |> doc.group
   }
 
-  doc.from_string("import " <> module)
-  |> doc.append(unqualifieds)
-  |> doc.append(pretty_as(alias))
+  let import_stmt =
+    doc.from_string("import " <> module)
+    |> doc.append(unqualifieds)
+
+  case alias {
+    Some(alias) ->
+      import_stmt
+      |> doc.append(doc.from_string(" as "))
+      |> doc.append(pretty_assignment_name(alias))
+    None -> import_stmt
+  }
 }
 
 // --------- Little Pieces -------------------------------

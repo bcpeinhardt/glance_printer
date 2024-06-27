@@ -68,6 +68,7 @@ fn foo() {
   case 2, 3 {
     2, 3 | 2, 4 -> True
     _, _ if False -> False
+    _, _ -> True
   }
   4 == 2 + 2
 }
