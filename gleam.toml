@@ -12,7 +12,7 @@ repository = { type = "github", user = "bcpeinhardt", repo = "glance_printer" }
 
 [dependencies]
 gleam_stdlib = "~> 0.34 or ~> 1.0"
-glance = "~> 0.11.0"
+glance = "~> 2.0.0"
 glam = "~> 1.0 or ~> 2.0"
 
 [dev-dependencies]
