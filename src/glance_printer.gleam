@@ -723,7 +723,7 @@ fn pretty_field(field: Field(a), a_to_doc: fn(a) -> Document) -> Document {
       doc.from_string(label <> ": ")
       |> doc.append(a_to_doc(type_))
 
-    ShorthandField(label: label) -> doc.from_string(label)
+    ShorthandField(label: label) -> doc.from_string(label <> ":")
 
     UnlabelledField(item: type_) -> a_to_doc(type_)
   }
