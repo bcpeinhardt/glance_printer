@@ -1,4 +1,5 @@
 import gleam/list
+import gleam/bit_array
 
 const x = 5
 
@@ -64,6 +65,11 @@ fn foo() {
     1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1, 1:1,
   >>
   <<3:size(4)-unit(4)>>
+  case bit_array.from_string("") {
+    <<_:bits>> -> todo
+    <<_:bytes>> -> todo
+    _ -> todo
+  }
   let assert <<"Hello Gleam 💫":utf8>> = <<"Hello Gleam 💫":utf8>>
   case 2, 3 {
     2, 3 | 2, 4 -> True
