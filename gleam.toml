@@ -1,5 +1,5 @@
 name = "glance_printer"
-version = "1.2.1"
+version = "2.0.0"
 description = "A pretty_printer for the glance AST"
 gleam = ">= 1.4.0"
 

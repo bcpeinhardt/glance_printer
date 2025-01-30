@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v2.0.0 - 30 January 2025
+- update to be in parity with glance v2.0.0
+
 ## v1.2.1 - 5 November 2024
 - update glance dependency
 
