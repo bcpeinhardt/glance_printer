@@ -5,20 +5,22 @@ import glance.{
   type Expression, type Field, type FnParameter, type Function,
   type FunctionParameter, type Import, type Module, type Pattern, type Publicity,
   type Statement, type Type, type TypeAlias, type Variant, AddFloat, AddInt, And,
-  Assert, Assignment, Attribute, BigOption, BinaryOperator, BinaryOption,
-  BitString, BitStringOption, Block, Call, Case, Clause, Concatenate, Constant,
-  CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression, Field,
+  Assert, Assignment, Attribute, BigOption, BinaryOperator, BitString,
+  BitsOption, Block, BytesOption, Call, Case, Clause, Concatenate, Constant,
+  CustomType, Definition, Discarded, DivFloat, DivInt, Eq, Expression,
   FieldAccess, Float, FloatOption, Fn, FnCapture, FnParameter, Function,
   FunctionParameter, FunctionType, GtEqFloat, GtEqInt, GtFloat, GtInt, Import,
-  Int, IntOption, Let, LittleOption, LtEqFloat, LtEqInt, LtFloat, LtInt, Module,
-  MultFloat, MultInt, Named, NamedType, NativeOption, NegateBool, NegateInt,
-  NotEq, Or, Panic, PatternAssignment, PatternBitString, PatternConcatenate,
-  PatternConstructor, PatternDiscard, PatternFloat, PatternInt, PatternList,
-  PatternString, PatternTuple, PatternVariable, Pipe, Private, Public,
-  RecordUpdate, RemainderInt, SignedOption, SizeOption, SizeValueOption, String,
-  SubFloat, SubInt, Todo, Tuple, TupleIndex, TupleType, TypeAlias, UnitOption,
-  UnsignedOption, Use, Utf16CodepointOption, Utf16Option, Utf32CodepointOption,
-  Utf32Option, Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
+  Int, IntOption, LabelledField, LabelledVariantField, Let, LittleOption,
+  LtEqFloat, LtEqInt, LtFloat, LtInt, Module, MultFloat, MultInt, Named,
+  NamedType, NativeOption, NegateBool, NegateInt, NotEq, Or, Panic,
+  PatternAssignment, PatternBitString, PatternConcatenate, PatternConstructor,
+  PatternDiscard, PatternFloat, PatternInt, PatternList, PatternString,
+  PatternTuple, PatternVariable, Pipe, Private, Public, RecordUpdate,
+  RecordUpdateField, RemainderInt, ShorthandField, SignedOption, SizeOption,
+  SizeValueOption, String, SubFloat, SubInt, Todo, Tuple, TupleIndex, TupleType,
+  TypeAlias, UnitOption, UnlabelledField, UnlabelledVariantField, UnsignedOption,
+  Use, Utf16CodepointOption, Utf16Option, Utf32CodepointOption, Utf32Option,
+  Utf8CodepointOption, Utf8Option, Variable, VariableType, Variant,
 }
 import glance_printer/internal/doc_extras.{
   comma_separated_in_parentheses, nbsp, nest, trailing_comma,
@@ -352,9 +354,14 @@ fn pretty_expression(expression: Expression) -> Document {
 
       let fields =
         list.map(fields, fn(field) {
-          let #(name, expr) = field
-          [doc.from_string(name <> ": "), pretty_expression(expr)]
-          |> doc.concat
+          let RecordUpdateField(name, item) = field
+          case item {
+            Some(expr) ->
+              [doc.from_string(name <> ": "), pretty_expression(expr)]
+              |> doc.concat
+
+            None -> doc.from_string(name)
+          }
         })
         |> list.prepend(record)
         |> comma_separated_in_parentheses
@@ -512,10 +519,10 @@ fn pretty_bitstring_option(
   fun: fn(as_doc) -> Document,
 ) -> Document {
   case bitstring_option {
-    BinaryOption -> doc.from_string("binary")
+    BitsOption -> doc.from_string("bits")
+    BytesOption -> doc.from_string("bytes")
     IntOption -> doc.from_string("int")
     FloatOption -> doc.from_string("float")
-    BitStringOption -> doc.from_string("bit_string")
     Utf8Option -> doc.from_string("utf8")
     Utf16Option -> doc.from_string("utf16")
     Utf32Option -> doc.from_string("utf32")
@@ -688,20 +695,38 @@ fn pretty_custom_type(type_: Definition(CustomType)) -> Document {
 }
 
 fn pretty_variant(variant: Variant) -> Document {
+  // doc.from_string(label <> ": ")
+  // |> doc.append(a_to_doc(type_))
+  // pub type VariantField {
+  //   LabelledVariantField(item: Type, label: String)
+  //   UnlabelledVariantField(item: Type)
+  // }
+
   let Variant(name, fields) = variant
   fields
-  |> list.map(pretty_field(_, pretty_type))
+  |> list.map(fn(field) {
+    case field {
+      LabelledVariantField(item: type_, label: label) ->
+        doc.from_string(label <> ": ")
+        |> doc.append(pretty_type(type_))
+
+      UnlabelledVariantField(item: type_) -> pretty_type(type_)
+    }
+  })
   |> comma_separated_in_parentheses
   |> doc.prepend(doc.from_string(name))
 }
 
 fn pretty_field(field: Field(a), a_to_doc: fn(a) -> Document) -> Document {
-  let Field(label, type_) = field
-  case label {
-    Some(l) -> doc.from_string(l <> ": ")
-    None -> doc.empty
+  case field {
+    LabelledField(label: label, item: type_) ->
+      doc.from_string(label <> ": ")
+      |> doc.append(a_to_doc(type_))
+
+    ShorthandField(label: label) -> doc.from_string(label <> ":")
+
+    UnlabelledField(item: type_) -> a_to_doc(type_)
   }
-  |> doc.append(a_to_doc(type_))
 }
 
 // Imports --------------------------------------------

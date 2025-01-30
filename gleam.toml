@@ -1,7 +1,7 @@
 name = "glance_printer"
 version = "1.2.1"
 description = "A pretty_printer for the glance AST"
-gleam = ">= 0.32.0"
+gleam = ">= 1.4.0"
 
 # Fill out these fields if you intend to generate HTML documentation or publish
 # your project to the Hex package manager.
@@ -12,7 +12,7 @@ repository = { type = "github", user = "bcpeinhardt", repo = "glance_printer" }
 
 [dependencies]
 gleam_stdlib = "~> 0.34 or ~> 1.0"
-glance = "~> 0.11.0"
+glance = "~> 2.0.0"
 glam = "~> 1.0 or ~> 2.0"
 
 [dev-dependencies]
