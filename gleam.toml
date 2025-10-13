@@ -11,10 +11,10 @@ repository = { type = "github", user = "bcpeinhardt", repo = "glance_printer" }
 # links = [{ title = "Website", href = "https://gleam.run" }]
 
 [dependencies]
-gleam_stdlib = "~> 0.34 or ~> 1.0"
+gleam_stdlib = "~> 0.62.1 or ~> 1.0"
 glance = ">= 5.0.0 and < 6.0.0"
 glam = "~> 1.0 or ~> 2.0"
 
 [dev-dependencies]
-simplifile = "~> 1.1.1"
-testbldr = "~> 1.0.0"
+simplifile = "~> 2.3.0"
+testbldr = { git = "git@github.com:bchase/testbldr.git", ref = "upgrade-deps" }
