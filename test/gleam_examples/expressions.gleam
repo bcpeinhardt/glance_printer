@@ -1,5 +1,5 @@
-import gleam/list
 import gleam/bit_array
+import gleam/list
 
 const x = 5
 
@@ -18,6 +18,10 @@ fn foo() {
   panic as "Some message"
   todo
   todo as "Some message"
+  echo "Some message"
+  assert True
+  assert True as "Some message"
+  "Some message" |> echo
   #(1, "text", True, x)
   #(
     1,
